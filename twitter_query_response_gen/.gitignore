@@ -1,0 +1,4 @@
+archive/
+app/.env
+app/config/__pycache__
+app/prompts/__pycache__
