@@ -9,6 +9,7 @@ import re
 #from loguru import logger
 import logging
 import shutil
+import datetime
 
 logging.basicConfig(filename = "checking_utils_functions.log",
                      format = '%(asctime)s%(message)s',
@@ -17,11 +18,13 @@ logging.basicConfig(filename = "checking_utils_functions.log",
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
+
 #Defining a get_logger function
 def get_logger_instance(name):
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)  
     return logger
+
 
 def git_hub_link_check(git_hub_link: str) -> str:
     match = re.search(r"github\.com/([a-zA-Z0-9_-]+)",git_hub_link)
@@ -45,6 +48,7 @@ def git_hub_link_check(git_hub_link: str) -> str:
         logger.info(f"Git hub link: {git_hub_link},this is the exception: {e} obtained")
         return None
 
+
 #Function for cloning git in the working directory
 def cloning_git(git_hub_link, repo_folder_naming_int_string):
     wor_dir = os.path.dirname(os.path.abspath(sys.argv[0])) 
@@ -53,22 +57,42 @@ def cloning_git(git_hub_link, repo_folder_naming_int_string):
     logger.info(f"this is the repo_path: {repo_path}")
     try:
         Repo.clone_from(git_hub_link,repo_path)
+        logger.info("the repository is getting cloned now")
         return repo_path
     except Exception as e:
         logger.error(f"this is the error obtained from git clone: {e}")
         return None
 
+
 def remove_folders_and_subfolders(repo_path):
+    removed = False
+    for root, dirs, files in os.walk(repo_path):
+        logger.info(f"The results from os.walk are root: {root}, dirs: {dirs}, files: {files}")
+        for dir in dirs:
+            if dir ==  "__pycache__" or dir == "venv":
+                folder_path = os.path.join(root,dir)
+                shutil.rmtree(folder_path)
+                logger.info(f"the directory: {folder_path} has been deleted")
+                continue
+
+            folder_path = os.path.join(root,dir)
+            logger.info(f"the current directory considered for removal is: {folder_path}")
+            amount_of_directory = len(next(os.walk(folder_path))[1])
+            logger.info(f"the amount of directory in the above folder path is: {amount_of_directory}")
+            if amount_of_directory > 4:
+                shutil.rmtree(folder_path)
+                logger.info(f"the directory {folder_path} has been deleted")
+
+        logger.info(f"The results from os.walk after deleting directory are: {root}, dirs: {dirs}, files: {files}")
+
+    removed = True
+    return removed, repo_path
+
+def copy_files_to_main(repo_path):
     removed = False
     readme_names = ['README (2).md', 'readme-md.txt', 'README (1).md', 'readme (1).md', 'code README.md', 'README.md', 'readme.md', 'Readme.md', 'ReadMe.md', 'README', 'readme', 'umath-validation-set-README.txt', 'README.rst', 'readme.rst', 'README.txt', 'readme.txt']
     counter = 1
     for root, dirs, files in os.walk(repo_path, topdown=False):
-        # for dir in dirs:
-        #     if dir ==  "__pycache__" or dir == "venv":
-        #         folder_path = os.path.join(root,dir)
-        #         shutil.rmtree(folder_path)
-        #         logger.info(f"the directory: {folder_path} has been deleted")
-
         if root == repo_path:
             break
         logger.info(f"The results from os.walk are root: {root}, dirs: {dirs}, files: {files}")
@@ -90,7 +114,8 @@ def remove_folders_and_subfolders(repo_path):
             logger.info(f"the directory {folder_path} has been deleted")
 
     removed = True
-    return removed, repo_path
+    return removed, repo_path    
+
 
 #Function for getting file_name
 def getting_file_name(repo_path):
@@ -189,7 +214,11 @@ def check_ruff_error(repo_path):
         try:
             errors = json.loads(proc.stdout)
             logger.info(f"this ruff_check errors are here: {errors}")
-            error_count += 1
+            if len(errors) == 0:
+                logger.info("this file has passed ruff checks")
+            else:
+                logger.info(f"this is the number of ruff error instances: {len(errors)}")
+                error_count += len(errors)
         except json.JSONDecodeError:
             return print("function failed")
 
